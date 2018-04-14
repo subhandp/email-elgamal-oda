@@ -1,0 +1,6 @@
+{
+    "require": {
+       "phpoffice/phpword": "v0.14.*",
+        "eden/mail": "^4.0"
+    }
+}
