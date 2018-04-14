@@ -2,7 +2,39 @@
 require_once 'vendor/autoload.php';
 require 'elgamal.php';
 require 'DocxConversion.php';
- ?>
+
+$hostname = '{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX';
+$username = 'subhan.dinda.putra@gmail.com'; # e.g somebody@gmail.com
+$password = 'thehammer13865';
+Eden::DECORATOR;
+
+$imap = eden('mail')->imap(
+        'imap.gmail.com', 
+        $username, 
+        $password, 
+        993, 
+        true);
+
+$imap->setActiveMailbox('INBOX');
+
+$title = "INBOX";
+$tanggal = "";
+if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])){
+  $msgid = $_GET['msgid'];
+  $p = $_GET['p'];
+  $k = $_GET['k'];
+
+  $email = $imap->getUniqueEmails($msgid, true);
+
+  $body = $email['body']['text/html'];                              
+  $elgamal = new elgamal(0,0,0,0,0);
+  $body = $elgamal->_dekripsi($body,$p, $k);
+
+  $title = "{$email['from']['name']} - {$email['subject']}";
+  $tanggal =  date('Y-m-d', $email['date']);
+}
+
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -154,21 +186,13 @@ require 'DocxConversion.php';
               <div class="col-md-12">
                 <div class="x_panel">
                   <div class="x_title">
-                    <h2><i class="fa fa fa-inbox"></i> Utama</h2>
+        
+                    <h2><i class="fa fa fa-inbox"></i> <?php echo $title; ?></h2>
                     <ul class="nav navbar-right panel_toolbox">
+                      <li><?php echo $tanggal; ?></li>
                       <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
                       </li>
-                      <li class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
-                        <ul class="dropdown-menu" role="menu">
-                          <li><a href="#">Settings 1</a>
-                          </li>
-                          <li><a href="#">Settings 2</a>
-                          </li>
-                        </ul>
-                      </li>
-                      <li><a class="close-link"><i class="fa fa-close"></i></a>
-                      </li>
+                      
                     </ul>
                     <div class="clearfix"></div>
                   </div>
@@ -179,25 +203,31 @@ require 'DocxConversion.php';
 
                         <?php 
 
-                            $hostname = '{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX';
-                            $username = 'subhan.dinda.putra@gmail.com'; # e.g somebody@gmail.com
-                            $password = 'thehammer13865';
+                            if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])) {
 
-                            Eden::DECORATOR;
+                          
+                              echo "<h4>{$body}</h4>";
 
-                            $imap = eden('mail')->imap(
-                                    'imap.gmail.com', 
-                                    $username, 
-                                    $password, 
-                                    993, 
-                                    true);
-                            $imap->setActiveMailbox('INBOX');
                             
 
-                            if (isset($_GET['msgId']) && isset($_GET['p']) && isset($_GET['k'])) {
-                                
+                              foreach ($email['attachment'] as $keyname => $name) {
+                                foreach ($name as $appattach) {
+                                   if(file_exists($keyname)){
+                                        unlink($keyname);
+                                      }
+                                      
+                                    $fp = fopen($keyname,"w+");
+                                    fwrite($fp,$appattach);
+                                    fclose($fp);
+
+                                    $path = $keyname;
+
+                                     echo  "<a class='btn btn-default' href=\"{$path}\" download=\"{$keyname}\"><i class=\"fa fa-download\"></i> {$keyname}</a>";
+                                }
+                              }
                             }
                             else{
+
                                 $emails = $imap->getEmails(0, $imap->getEmailTotal());
                                 $emails = $imap->search(array('SUBJECT "[CHIPHER]"'), 0, 5); 
                                 $emails = array_reverse($emails);
@@ -217,64 +247,10 @@ require 'DocxConversion.php';
                             }
                             
 
-                            // $imap->setActiveMailbox('INBOX');
-                            // $email = $imap->getUniqueEmails(877, true);
-                            // $name = [];
-                            // $bin = [];
-                            // //print_r($email);
-                          
-                            // foreach ($email['attachment'] as $filename => $formatname) {
-
-                            //   foreach ($email['attachment'][$filename] as $formatname => $bin) {
-
-                                
-
-                            //         if(file_exists($filename)){
-                            //           unlink($filename);
-                            //         }
-                                                                            
-
-                            //           $fp = fopen($filename,"w+");
-                            //           fwrite($fp,$bin);
-                            //           fclose($fp);
-                            //           readfile($filename);
-                                    
-                            //   }
-                            // }
-
-
-
-
-                            // // The PDF source is in original.pdf
-                            // readfile('original.pdf');
-
-                            // foreach ($email['text/plain'] as $key => $value) {
-                            //   echo $value;
-                            // }
-
-                            // print_r($email['attachment']['text/plain']);
-                            // $name = 'Kata Pengantar.docx';
-                            // $d = $email['attachment'][$name]['application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-                            // //print_r($email); 
-
-                            //         if(file_exists($name)){
-                            //           unlink($name);
-                            //         }
-                                    
-
-                            //           $fp = fopen($name,"w+");
-                            //           fwrite($fp,$d);
-                            //           fclose($fp);
-
-              
-                            // $emails = $imap->getEmails(0,135);
-                            // $count = $imap->getEmailTotal(); 
-                            // $emails = $imap->search(array('SUBJECT "[CHIPHER]"'), 0, 5); 
-                            // $emails = array_reverse($emails);
-                            // print_r(count($emails)); 
-                            // print_r($emails);
+                            
+                    
                          ?>
-                        
+          
                         
                       </div>
 
@@ -282,219 +258,7 @@ require 'DocxConversion.php';
 
 
                                 
-                            function parsepart($p,$i){
-                                  //echo "ini p";
-                                  //print_r($p);
-                                    global $link,$msgid,$partsarray;
-                                    //where to write file attachments to:
-                                    $filestore = '';
-
-                                    //fetch part
-                                    $part=imap_fetchbody($link,$msgid,$i);
-                                    //if type is not text
-                                    if ($p->type!=0){
-                                        //DECODE PART        
-                                        //decode if base64
-                                        if ($p->encoding==3)$part=base64_decode($part);
-                                        //decode if quoted printable
-                                        if ($p->encoding==4)$part=quoted_printable_decode($part);
-                                        //no need to decode binary or 8bit!
-                                        
-                                        //get filename of attachment if present
-                                        $filename='';
-                                        // if there are any dparameters present in this part
-                                        if ($p->ifdparameters){
-                                            foreach ($p->dparameters as $dparam){
-                                                if ((strtoupper($dparam->attribute)=='NAME') ||(strtoupper($dparam->attribute)=='FILENAME')) $filename=$dparam->value;
-                                                }
-                                            }
-                                        //if no filename found
-                                        if ($filename==''){
-                                            // if there are any parameters present in this part
-                                            if (count($p->parameters)>0){
-                                                foreach ($p->parameters as $param){
-                                                    if ((strtoupper($param->attribute)=='NAME') ||(strtoupper($param->attribute)=='FILENAME')) $filename=$param->value;
-                                                    }
-                                                }
-                                            }
-                                        //write to disk and set partsarray variable
-                                        if ($filename!=''){
-                                            $partsarray[$i]['attachment'] = array('filename'=>$filename,'binary'=>$part);
-                                            }
-                                    //end if type!=0        
-                                    }
-                                    
-                                    //if part is text
-                                    else if($p->type==0){
-                                        //decode text
-                                        //if QUOTED-PRINTABLE
-                                        if ($p->encoding==4) $part=quoted_printable_decode($part);
-                                        //if base 64
-                                        if ($p->encoding==3) $part=base64_decode($part);
-                                        
-                                        //OPTIONAL PROCESSING e.g. nl2br for plain text
-                                        //if plain text
-
-                                        if (strtoupper($p->subtype)=='PLAIN')1;
-                                        //if HTML
-                                        else if (strtoupper($p->subtype)=='HTML')1;
-                                        $partsarray[$i]['text'] = array('type'=>$p->subtype,'string'=>$part);
-                                    }
-                                    
-                                    //if subparts... recurse into function and parse them too!
-                                    if (isset($p->parts)){
-                                        foreach ($p->parts as $pno=>$parr){
-                                            parsepart($parr,($i.'.'.($pno+1)));            
-                                            }
-                                        }
-                                return;
-                                }
-
-
-                        // if (isset($_GET['msgId']) && isset($_GET['p']) && isset($_GET['k'])) {
-                        //     $key = new elgamal(0,0,0,0,0);
-                        //     $p = (int)$_GET['p'];
-                        //     $k = (int)$_GET['k'];
-                        //     $msgId = (int)$_GET['msgId'];
-                            
-                        //     $link=imap_open($hostname,$username,$password) or die('Cannot connect to Gmail: ' . imap_last_error());
-
-                        //     $msgid = imap_msgno($link, $msgId);
-
-                        //         //fetch structure of message
-                        //     $s=imap_fetchstructure($link,$msgid);
-
-                        //         //see if there are any parts
-                        //         if (count($s->parts)>0){
-                        //         foreach ($s->parts as $partno=>$partarr){
-                        //             //parse parts of email
-                        //             parsepart($partarr,$partno+1);
-                        //             }
-                        //         }
-                        //         //for not multipart messages
-                        //         else{
-                        //             //get body of message
-                        //             $text=imap_body($link,$msgid);
-                        //             //decode if quoted-printable
-                        //             if ($s->encoding==4) $text=quoted_printable_decode($text);
-                        //             //OPTIONAL PROCESSING
-                        //             if (strtoupper($s->subtype)=='PLAIN') $text=$text;
-                        //             if (strtoupper($s->subtype)=='HTML') $text=$text;
-                                    
-                        //             $partsarray['not multipart']['text']=array('type'=>$s->subtype,'string'=>$text);
-                        //         }
-                                
-                        //         $body = $key->_dekripsi($partsarray['1.2']['text']['string'],$p, $k);
-
-                        //         $overview = imap_fetch_overview($link,$msgid,0);
-                                    
-                        //         $subject = $overview[0]->subject;
-
-                        //         echo "<a uid=\"{$overview[0]->uid}\" data-toggle=\"modal\" data-target=\"#modalForm\">
-                        //                       <div class=\"mail_list\">
-                        //                         <div style=\"cursor:pointer\">
-                        //                           <h4>{$overview[0]->from} - {$subject} <small>{$overview[0]->date}</small></h4>
-                        //                           <p>{$body}</p>
-                        //                         </div>
-                        //                       </div>
-                        //                     </a>";
-
-                        //         // print_r($partsarray);
-                        //         //print_r(isset(var));
-
-                                
-
-                        //         if ($partsarray[2]['attachment']['binary']){
-                        //             $path = $partsarray[2]['attachment']['filename'];
-                        //             $binary = $partsarray[2]['attachment']['binary'];
-                        //             echo "<form id=\"form-get-attach\">
-                        //                     <input name='attach-bin' type=\"hidden\" value_bin=\"\">
-                        //                     <input name='attach-path' type=\"hidden\" value_path=\"x\">
-                        //                     <button><i class=\"fa fa-download\"></i> {$path}</button>
-                        //                 </form>";
-                        //             // if(file_exists($path)){
-                        //             //   unlink($path);
-                        //             // }
-                                    
-
-                        //               // $filename = $partsarray[2]['attachment']['filename'];
-                        //               // $fp = fopen($filename,"w+");
-                        //               // fwrite($fp,$partsarray[2]['attachment']['binary']);
-                        //               // fclose($fp);
-
-                                      
-                        //               // $docObj = new DocxConversion($path);
-                        //               // $myText = $docObj->convertToText();
-                        //               // unlink($path);
-                        //               // $myText = $key->_dekripsi($myText,$p, $k);
-
-                        //               // //$myText = html_entity_decode($myText);
-                        //               // $fp=fopen('temp.html',"w+");
-                        //               // fwrite($fp, $myText);
-                        //               // fclose($fp);
-
-                        //               // $reader = \PhpOffice\PhpWord\IOFactory::createReader('HTML');
-                        //               // $phpWord = $reader->load('temp.html');
-                        //               // $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
-                        //               // $objWriter->save($path);
-
-                        //               // echo  "<a href=\"{$path}\" download=\"{$filename}\">{$filename}</a>";
-                        //               // $phpWord = new \PhpOffice\PhpWord\PhpWord();
-                        //               // $section = $phpWord->createSection();
-                        //               // $section->addText($myText);
-                        //               // unlink($path);
-                                      
-                        //               // $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
-                        //               // $objWriter->save($path);
-                                    
-                        //         }
-                          
-
-                        //     imap_close($link);
-                        // }
-                        // else{
-
-                            $conn = imap_open($hostname,$username,$password) or die('Cannot connect to Gmail: ' . imap_last_error());
-
-                            $emails = imap_search($conn,'ALL');
-                             
-                            $max_emails = 5;
-
-                            if($emails) {
-                             
-                                $count = 1;
-                             
-                                rsort($emails);
-                             
-                                foreach($emails as $email_number) 
-                                {
-                             
-                                    $overview = imap_fetch_overview($conn,$email_number,0);
-                                    
-                                    $subject = $overview[0]->subject;
-
-                                    if (explode(' ', $subject)[0] == '[CHIPHER]') {
-                                        
-                                        echo "<a href='#' uid=\"{$overview[0]->uid}\" class=\"list-inbox\">
-                                              <div class=\"mail_list\">
-                                                <div style=\"cursor:pointer\">
-                                                  <h3>{$overview[0]->from} <small>{$overview[0]->date}</small></h3>
-                                                  <p>{$subject}</p>
-                                                </div>
-                                              </div>
-                                            </a>";
-                                        
-                                        if($count++ >= $max_emails) break;
-                                    }
-                                    
-                                }
-                             
-                            } 
-                             
-                            /* close the connection */
-                            imap_close($conn);
-                        // }
-
+            
 
                        ?>
 
@@ -633,7 +397,7 @@ require 'DocxConversion.php';
             var uid = $("input[name='uid-hidden']").val();
             var p = $("input[name='nilai_p']").val();
             var k = $("input[name='nilai_k']").val();
-            var url = "http://localhost/production/inbox.php?msgId="+uid+"&p="+p+"&k="+k;
+            var url = "http://localhost/production/inbox.php?msgid="+uid+"&p="+p+"&k="+k;
             window.location.href = url;
         });
 
