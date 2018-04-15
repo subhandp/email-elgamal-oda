@@ -1,11 +1,16 @@
 <?php 
+session_start();
+if (!isset($_SESSION['email']) && !isset($_SESSION['pass'])) {
+  echo "<script> location.href='login.php'; </script>";
+  exit;
+}
 require_once 'vendor/autoload.php';
 require 'elgamal.php';
 require 'DocxConversion.php';
 
 $hostname = '{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX';
-$username = 'subhan.dinda.putra@gmail.com'; # e.g somebody@gmail.com
-$password = 'thehammer13865';
+$username = $_SESSION['email'];
+$password = $_SESSION['pass'];
 Eden::DECORATOR;
 
 $imap = eden('mail')->imap(
@@ -134,18 +139,10 @@ if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])){
               <ul class="nav navbar-nav navbar-right">
                 <li class="">
                   <a href="javascript:;" class="user-profile dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-                    <img src="images/img.jpg" alt="">Oda
+                    <img src="images/img.jpg" alt=""><?php echo $_SESSION['email'] ?>
                     <span class=" fa fa-angle-down"></span>
                   </a>
                   <ul class="dropdown-menu dropdown-usermenu pull-right">
-                    <li><a href="javascript:;"> Profile</a></li>
-                    <li>
-                      <a href="javascript:;">
-                        <span class="badge bg-red pull-right">50%</span>
-                        <span>Settings</span>
-                      </a>
-                    </li>
-                    <li><a href="javascript:;">Help</a></li>
                     <li><a href="login.php"><i class="fa fa-sign-out pull-right"></i> Log Out</a></li>
                   </ul>
                 </li>
@@ -169,13 +166,8 @@ if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])){
               </div>
 
               <div class="title_right">
-                <div class="col-md-5 col-sm-5 col-xs-12 form-group pull-right top_search">
-                  <div class="input-group">
-                    <input type="text" class="form-control" placeholder="Search for...">
-                    <span class="input-group-btn">
-                      <button class="btn btn-default" type="button">Go!</button>
-                    </span>
-                  </div>
+                <div class="col-md-5 col-sm-5 col-xs-12 form-group pull-right">
+                  
                 </div>
               </div>
             </div>
@@ -190,6 +182,21 @@ if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])){
                     <h2><i class="fa fa fa-inbox"></i> <?php echo $title; ?></h2>
                     <ul class="nav navbar-right panel_toolbox">
                       <li><?php echo $tanggal; ?></li>
+                      <?php if (!isset($_GET['msgid']) && !isset($_GET['p']) && !isset($_GET['k'])) {
+                          
+                        ?>
+                          <li>
+                            <div class="dropdown">
+                              <button class="btn btn-default dropdown-toggle" type="button" id="menu1" data-toggle="dropdown">5
+                              <span class="caret"></span></button>
+                              <ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+                                <li role="presentation"><a role="menuitem" tabindex="-1" href="inbox.php?inboxpage=5">5</a></li>
+                                <li role="presentation"><a role="menuitem" tabindex="-1" href="inbox.php?inboxpage=15">15</a></li>
+                                <li role="presentation"><a role="menuitem" tabindex="-1" href="inbox.php?inboxpage=semua">semua</a></li>
+                              </ul>
+                            </div>
+                          </li>
+                      <?php } ?>
                       <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
                       </li>
                       
@@ -205,17 +212,18 @@ if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])){
 
                             if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])) {
 
-                          
+                              set_time_limit(1000);
+
                               echo "<h4>{$body}</h4>";
 
-                            
+                              
 
                               foreach ($email['attachment'] as $keyname => $name) {
                                 foreach ($name as $appattach) {
                                    if(file_exists($keyname)){
                                         unlink($keyname);
                                       }
-                                      
+
                                     $fp = fopen($keyname,"w+");
                                     fwrite($fp,$appattach);
                                     fclose($fp);
@@ -223,22 +231,62 @@ if (isset($_GET['msgid']) && isset($_GET['p']) && isset($_GET['k'])){
                                     $path = $keyname;
 
                                      echo  "<a class='btn btn-default' href=\"{$path}\" download=\"{$keyname}\"><i class=\"fa fa-download\"></i> {$keyname}</a>";
+                                      
+                                    $ext = explode('.', $path);
+                                    $ext = array_slice($ext, -1)[0];
+
+                                    switch ($ext) {
+                                      case 'txt':
+                                        $myText = file_get_contents($path);
+                                        $myText = $elgamal->_dekripsi($myText,$p, $k);
+                                        unlink($path);
+                                        $fp=fopen($path,"w+");
+                                        fwrite($fp, $myText);
+                                        fclose($fp);
+                                        break;
+                                      
+                                      default:
+                                        $docObj = new DocxConversion($path);
+                                        $myText = $docObj->convertToText();
+                                        unlink($path);
+                                        $myText = $elgamal->_dekripsi($myText,$p, $k);
+                                        
+                                        $fp=fopen('temp.html',"w+");
+                                        fwrite($fp, $myText);
+                                        fclose($fp);
+
+                                        $reader = \PhpOffice\PhpWord\IOFactory::createReader('HTML');
+                                        $phpWord = $reader->load('temp.html');
+                                        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+                                        $objWriter->save($path);
+                                        break;
+                                    }
+                                    
                                 }
                               }
                             }
                             else{
 
+                                if (!isset($_GET['inboxpage']))
+                                  $page = 5;
+                                else
+                                  $page = $_GET['inboxpage'];
+
+                                if ($page == 'semua')
+                                  $page = $imap->getEmailTotal(); 
+                                  
+                                
                                 $emails = $imap->getEmails(0, $imap->getEmailTotal());
-                                $emails = $imap->search(array('SUBJECT "[CHIPHER]"'), 0, 5); 
+                                $emails = $imap->search(array('SUBJECT "[CHIPHER]"'), 0, $page); 
                                 $emails = array_reverse($emails);
                                 
-                                //print_r($emails);
 
                                 foreach ($emails as $email) {
+                                   $tanggal =  date('Y-m-d', $email['date']);
                                     echo "<a href='#' uid=\"{$email['uid']}\" class=\"list-inbox\">
                                       <div class=\"mail_list\">
                                         <div style=\"cursor:pointer\">
-                                          <h3>{$email['from']['name']} <small>{$email['date']}</small></h3>
+                                          <h3>{$email['from']['name']} <small>{$tanggal}</small></h3>
                                           <p>{$email['subject']}</p>
                                         </div>
                                       </div>

@@ -26,7 +26,7 @@
     }
 
 
-    private function read_docxx(){
+    private function read_docx(){
         // $docx = get_url($url);
         // file_put_contents("tempf.docx",$docx);
         $xml_filename = "word/document.xml"; //content file name
@@ -55,7 +55,7 @@
         return $output_text;
     }
 
-    private function read_docx(){
+    private function read_docxx(){
 
         $striped_content = '';
         $content = '';
